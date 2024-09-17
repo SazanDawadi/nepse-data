@@ -47,19 +47,21 @@ def get_page_table(driver, table_class):
 
 def scrape_data(driver, date):
     search(driver, date=date)
-    df = pd.DataFrame()
+    df_list = []  # List to hold DataFrames
     count = 0
     while True:
         count += 1
         print(f"Scraping page {count}")
         page_table_df = get_page_table(driver, table_class="table table-bordered table-striped table-hover sortable")
-        df = df.append(page_table_df, ignore_index=True)
+        df_list.append(page_table_df)  # Append DataFrame to list
         try:
             next_btn = driver.find_element(By.LINK_TEXT, 'Next')
             driver.execute_script("arguments[0].click();", next_btn)
         except NoSuchElementException:
             break
     driver.close()
+    # Concatenate all DataFrames in the list into a single DataFrame
+    df = pd.concat(df_list, ignore_index=True)
     return df
 
 
