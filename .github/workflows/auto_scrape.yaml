@@ -1,16 +1,16 @@
 name: Auto Scrape
 
-# on:
-#   push:
-#     branches:
-#       - master
-
 on:
   push:
     branches:
-      - main
-  schedule:
-    - cron: '35 14 * * *' # Every Day at 4PM NST (10:15am UTC)
+      - master
+
+# on:
+#   push:
+#     branches:
+#       - main
+#   schedule:
+#     - cron: '35 14 * * *' # Every Day at 4PM NST (10:15am UTC)
 
 jobs:
 
