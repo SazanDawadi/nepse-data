@@ -12,6 +12,7 @@ import sys
 
 def search(driver, date):
     """
+    
     Date in mm/dd/yyyy
     """
     driver.get("https://merolagani.com/Floorsheet.aspx")
