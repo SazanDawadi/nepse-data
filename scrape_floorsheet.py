@@ -79,7 +79,8 @@ def main():
     options.add_argument('--headless=new')  # Use the updated headless argument
     driver = webdriver.Chrome(options=options)  # Start Browser
     driver.set_page_load_timeout(240)
-    date = datetime.today().strftime('%m/%d/%Y')  # Get today's date
+    # date = datetime.today().strftime('%m/%d/%Y')  # Get today's date
+    date = '09/17/2024'
     search(driver, date)  # Search the webpage
     df = scrape_data(driver, date)  # Scraping
     final_df = clean_df(df)  # Cleaning
