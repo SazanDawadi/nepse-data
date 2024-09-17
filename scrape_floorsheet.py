@@ -12,16 +12,16 @@ import sys
 
 def search(driver, date):
     """
+    
     Date in mm/dd/yyyy
     """
     driver.get("https://merolagani.com/Floorsheet.aspx")
     # Wait for the date input element to be present
     element = WebDriverWait(driver, 20).until(
-        EC.presence_of_element_located((By.XPATH, '//*[@id="ctl00_ContentPlaceHolder1_txtFloorsheetDateFilter"]'))
-
+        EC.presence_of_element_located((By.XPATH, "/html/body/form/div[4]/div[4]/div/div/div[1]/div[4]/input"))
     )
-    date_input = driver.find_element(By.XPATH, '//*[@id="ctl00_ContentPlaceHolder1_txtFloorsheetDateFilter"]')
-    search_btn = driver.find_element(By.XPATH, '//*[@id="//*[@id="ctl00_ContentPlaceHolder1_lbtnSearchFloorsheet"]"]')
+    date_input = driver.find_element(By.XPATH, '/html/body/form/div[4]/div[4]/div/div/div[1]/div[4]/input')
+    search_btn = driver.find_element(By.XPATH, '/html/body/form/div[4]/div[4]/div/div/div[2]/a[1]')
     date_input.send_keys(date)
     search_btn.click()
     # Check for error message
