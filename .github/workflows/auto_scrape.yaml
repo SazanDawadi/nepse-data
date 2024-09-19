@@ -5,15 +5,7 @@ on:
     branches:
       - main
 
-# on:
-#   push:
-#     branches:
-#       - main
-#   schedule:
-#     - cron: '35 14 * * *' # Every Day at 4PM NST (10:15am UTC)
-
 jobs:
-
   build:
     runs-on: ubuntu-latest
 
@@ -25,8 +17,23 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: 3.12.0
+
+      - name: Install Chrome Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget unzip
+          wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          sudo apt install -y ./google-chrome-stable_current_amd64.deb
+          google-chrome --version
       
-      - name: Install Dependencies
+      - name: Install ChromeDriver
+        run: |
+          CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+')
+          wget -N https://chromedriver.storage.googleapis.com/$CHROME_VERSION/chromedriver_linux64.zip
+          unzip chromedriver_linux64.zip -d /usr/local/bin/
+          chromedriver --version
+
+      - name: Install Python Dependencies
         run: |
           pip install -r requirements.txt
       
@@ -39,10 +46,5 @@ jobs:
            git config --local user.email "sajandawadi5@gmail.com"
            git config --local user.name "SazanDawadi"        
            git add .
-           git commit -m "Data Scraped Sucessfully" -a
+           git commit -m "Data Scraped Successfully" -a
            git push origin main
-      
-      # - name: Push changes
-      #   uses: ad-m/github-push-action@main
-      #   with:
-      #     github_token: ${{ secrets.GITHUB_TOKEN }}
