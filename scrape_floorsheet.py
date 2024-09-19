@@ -9,108 +9,172 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import sys
 
-def search(driver, date):
+def log(message):
     """
-    Date in mm/dd/yyyy
+    Custom log function for console output with timestamps.
     """
-    print(f"Accessing website to search for date: {date}")
-    driver.get("https://merolagani.com/Floorsheet.aspx")
-    print("Website accessed.")
-    
-    try:
-        # Wait for the date input element to be present
-        WebDriverWait(driver, 20).until(
-            EC.presence_of_element_located((By.XPATH, "/html/body/form/div[4]/div[4]/div/div/div[1]/div[4]/input"))
-        )
-        date_input = driver.find_element(By.XPATH, '/html/body/form/div[4]/div[4]/div/div/div[1]/div[4]/input')
-        search_btn = driver.find_element(By.XPATH, '/html/body/form/div[4]/div[4]/div/div/div[2]/a[1]')
-        date_input.send_keys(date)
-        search_btn.click()
-        print("Search button clicked.")
-    except NoSuchElementException as e:
-        print(f"Error during search: {e}")
-        driver.close()
-        sys.exit()
-    
-    # Check for error message
-    if driver.find_elements(By.XPATH, "//*[contains(text(), 'Could not find floorsheet matching the search criteria')]"):
-        print("No data found for the given search.")
-        print("Script Aborted")
-        driver.close()
-        sys.exit()
+    print(f"[{datetime.now()}] {message}")
 
-def get_page_table(driver, table_class):
-    print("Fetching page table.")
-    try:
-        # Wait for the table to be present
-        WebDriverWait(driver, 20).until(
-            EC.presence_of_element_located((By.XPATH, "/html/body/form/div[4]/div[5]/div/div[4]/table"))
-        )
-        soup = BeautifulSoup(driver.page_source, 'html.parser')
-        table = soup.find("table", {"class": table_class})
-        tab_data = [[cell.text.replace('\r', '').replace('\n', '') for cell in row.find_all(["th", "td"])]
-                    for row in table.find_all("tr")]
-        
-        # Log a snapshot of the first few rows
-        sample_data = tab_data[:5]
-        print(f"Sample data retrieved: {sample_data}")
-        
-        df = pd.DataFrame(tab_data)
-        print("Table fetched successfully.")
-        return df
-    except Exception as e:
-        print(f"Error fetching page table: {e}")
-        raise
 
-def scrape_data(driver, date):
-    print("Starting data scraping.")
-    search(driver, date=date)
-    df_list = []
+def search(driver):
+    """
+    Navigates to the price history and selects 50 entries.
+    """
+    log("Navigating to the CGH company page.")
+    driver.get("https://www.sharesansar.com/company/cgh")
+    
+    log("Waiting for the 'Price History' button to appear.")
+    price_history_btn = WebDriverWait(driver, 20).until(
+        EC.presence_of_element_located((By.XPATH, '//*[@id="btn_cpricehistory"]'))
+    )
+    price_history_btn.click()
+    log("'Price History' button clicked.")
+    
+    log("Waiting for the entries dropdown to appear.")
+    select_entries = WebDriverWait(driver, 20).until(
+        EC.presence_of_element_located(
+            (By.XPATH, '/html/body/div[2]/div/section[2]/div[3]/div/div/div/div[2]/div/div[1]/div[2]/div/div[8]/div/div/div[1]/label/select')
+        )
+    )
+    select_entries.click()
+    log("Entries dropdown clicked. Now selecting '50 entries'.")
+    
+    option_50 = driver.find_element(By.XPATH, '/html/body/div[2]/div/section[2]/div[3]/div/div/div/div[2]/div/div[1]/div[2]/div/div[8]/div/div/div[1]/label/select/option[3]')
+    option_50.click()  # Choose the "50 entries" option
+    
+    log("'50 entries' option selected.")
+    
+    log("Waiting for the price history table to load.")
+    WebDriverWait(driver, 20).until(
+        EC.presence_of_element_located((By.XPATH, '//*[@id="myTableCPriceHistory"]'))
+    )
+    log("Price history table loaded.")
+
+
+def get_page_table(driver):
+    """
+    Extract table data from the price history table.
+    """
+    log("Extracting data from the price history table.")
+    soup = BeautifulSoup(driver.page_source, 'html.parser')
+    
+    # Find the table using the specified XPath
+    table = soup.find("table", {"id": "myTableCPriceHistory"})
+    
+    # Extract table data
+    tab_data = [[cell.text.replace('\r', '').replace('\n', '').strip() for cell in row.find_all(["th", "td"])]
+                for row in table.find_all("tr")]
+    
+    log("Table data extracted.")
+    df = pd.DataFrame(tab_data)
+    return df
+
+
+def scrape_data(driver):
+    """
+    Scrape all pages and return the concatenated DataFrame.
+    """
+    df = pd.DataFrame()
     count = 0
     while True:
         count += 1
-        print(f"Scraping page {count}")
-        page_table_df = get_page_table(driver, table_class="table table-bordered table-striped table-hover sortable")
-        df_list.append(page_table_df)
+        log(f"Scraping page {count}.")
+        
+        # Get the table data
+        page_table_df = get_page_table(driver)
+        
+        # Append to the overall DataFrame
+        df = pd.concat([df, page_table_df], ignore_index=True)
+        
+        # Log a snippet of the data for this page
+        log(f"Preview of data from page {count}:")
+        log(page_table_df.head().to_string(index=False))  # Print a snippet of the table
+        
         try:
-            next_btn = driver.find_element(By.LINK_TEXT, 'Next')
+            # Click on the "Next" button using the provided XPath
+            next_btn = driver.find_element(By.XPATH, '//*[@id="myTableCPriceHistory_next"]')
+            
+            # Check if the "Next" button is disabled
+            if "disabled" in next_btn.get_attribute("class"):
+                log(f"No more pages to scrape. Scraping completed at page {count}.")
+                break  # Exit the loop if there's no more pages
+            
+            # Click "Next" to go to the next page
             driver.execute_script("arguments[0].click();", next_btn)
-            print("Clicked 'Next' button.")
+            log(f"Clicked 'Next' button for page {count+1}.")
+            
+            # Wait for the table to refresh/load
+            WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.XPATH, '//*[@id="myTableCPriceHistory"]'))
+            )
         except NoSuchElementException:
-            print("No 'Next' button found. Scraping completed.")
+            log("No 'Next' button found. Scraping finished.")
             break
+
     driver.close()
-    # Concatenate all DataFrames in the list into a single DataFrame
-    df = pd.concat(df_list, ignore_index=True)
-    print("Data scraping completed.")
+    log("Browser closed.")
     return df
 
+
 def clean_df(df):
-    print("Starting data cleaning.")
+    """
+    Clean up the DataFrame: drop duplicates, set the correct headers, and format the columns.
+    """
+    log("Cleaning up the DataFrame.")
+    
+    # Drop duplicates
     new_df = df.drop_duplicates(keep='first')
-    new_header = new_df.iloc[0]
-    new_df = new_df[1:]
-    new_df.columns = new_header
-    new_df.drop(["#"], axis=1, inplace=True)
-    new_df["Rate"] = new_df["Rate"].apply(lambda x: float(x.replace(",", "")))
-    new_df["Amount"] = new_df["Amount"].apply(lambda x: float(x.replace(",", "")))
-    print("Data cleaning completed.")
+
+    # Use the first row as the new header
+    new_header = new_df.iloc[0]  # Get the first row as the header
+    new_df = new_df[1:]  # Data without the header row
+    new_df.columns = new_header  # Set the new header
+    
+    # Log the current state of the dataframe
+    log(f"DataFrame columns after setting header: {new_df.columns}")
+
+    # Drop the "S.N." column if it exists (previously "#")
+    if "S.N." in new_df.columns:
+        new_df.drop(["S.N."], axis=1, inplace=True)
+        log("'S.N.' column dropped.")
+    
+    # Handle data conversion for numeric columns
+    log("Converting 'Qty' and 'Turnover' columns to float.")
+    
+    # Convert numeric columns like "Qty" and "Turnover" to float after removing commas
+    new_df["Qty"] = new_df["Qty"].apply(lambda x: float(x.replace(",", "")))
+    new_df["Turnover"] = new_df["Turnover"].apply(lambda x: float(x.replace(",", "")))
+    
+    log("Data cleaning completed.")
     return new_df
 
+
+
 def main():
-    print("Script started.")
+    log("Starting the scraping process.")
+    
+    # Setup headless Chrome options
     options = Options()
-    options.add_argument('--headless=new')
-    driver = webdriver.Chrome(options=options)
+    options.headless = True
+    driver = webdriver.Chrome(options=options)  # Start the browser
     driver.set_page_load_timeout(240)
-    date = '09/16/2024'
-    search(driver, date)
-    df = scrape_data(driver, date)
+    
+    # Perform search and scraping
+    search(driver)
+    df = scrape_data(driver)
+    
+    # Clean the DataFrame
     final_df = clean_df(df)
-    file_name = date.replace("/", "_")
-    final_df.to_csv(f"data/{file_name}.csv", index=False)
-    print(f"Data saved to data/{file_name}.csv")
-    print("Script completed.")
+    
+    # Save the cleaned data to a CSV file
+    date = datetime.today().strftime('%m/%d/%Y').replace("/", "_")
+    file_name = f"Pdata/{date}.csv"
+    
+    final_df.to_csv(file_name, index=False)  # Save file
+    
+    log(f"Data saved to {file_name}.")
+    log("Scraping process completed successfully.")
+
 
 if __name__ == "__main__":
     main()
