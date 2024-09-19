@@ -25,17 +25,24 @@ jobs:
           wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
           sudo apt install -y ./google-chrome-stable_current_amd64.deb
           google-chrome --version
-      
-      - name: Install Latest Stable ChromeDriver
+
+      - name: Install ChromeDriver
         run: |
-          wget -N https://chromedriver.storage.googleapis.com/117.0.5938.88/chromedriver_linux64.zip
+          # Get the version of Google Chrome
+          CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+')
+
+          # Get the corresponding ChromeDriver version
+          CHROMEDRIVER_VERSION=$(curl -sS chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION})
+
+          # Download and install ChromeDriver
+          wget -N https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip
           unzip chromedriver_linux64.zip -d /usr/local/bin/
           chromedriver --version
 
       - name: Install Python Dependencies
         run: |
           pip install -r requirements.txt
-      
+
       - name: Execute Scraping Script
         run: |
           python scrape_floorsheet.py
